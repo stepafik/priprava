@@ -1,0 +1,111 @@
+## V tomto tematu budeme pracovat s daty, ktera jsou primo implementovana v R
+## jedna se o udaje o 178 vzorcich vina
+
+data(wine, package="rattle")
+
+## vzdycky je dobre, mrknout na data
+
+head(wine)
+
+## protoze to nejsou nase data, je dobre podivat se, co vsechno a jak je reprezentovano
+
+str(wine)
+
+## budeme potrebovat nektere knihovny
+
+library(car)
+scatterplotMatrix(wine,pch=16)
+
+## je videt, ze data jsou dost ruznoroda
+## napriklad typ vina je kvalitativni velicina, ktera se s ostatnimi spatne ciselne porovnava
+## data si standardizujeme prikazem (vynechame prvni znak "typ vina")
+
+wine.stand <- scale(wine[-1])
+
+## v nekterych pripadech (zalezi na charakteru dat) neni standardizovani 
+## vhodnym nastrojem. pojdme se podivat, jak to "ovlivnilo" charakter 
+## nasich dat:
+
+scatterplotMatrix(wine.stand,pch=16)   ## vykresli rozptylove grafy pro
+                                       ## standardizovana data
+
+## nyni je treba posoudit optimalni pocet shluku
+## muzeme pouzit predbeznou analyzu pomoci hierarchickeho shlukovani:
+
+d <- dist(wine.stand, method = "euclidean") # matice vzdalenosti
+                                            # pokud nam nevyhovuje eukleidovska
+
+help(dist)                                  # muzeme si vybrat jinou
+
+fit <- hclust(d, method="ward.D") 
+
+help(hclust)                                # chceme se podivat na jinou metodu?
+plot(fit)                                   # vykresli dendrogram
+plot(fit,labels = FALSE)
+groups <- cutree(fit, k=3) 
+                                            # rozseka graf do 3 shluku
+rect.hclust(fit, k=3, border="red")
+                                            # vykresli dendrogram s cervenymi 
+                                            # boxy okolo 3 shluku
+
+
+
+
+## nasledujici funkce nam v tom pomuze graficky primo z metody K-means
+## popisuje celkovy soucet vnitroskupinovych rozptylu v zavislosti na poctu shluku
+
+wssplot <- function(data, nc=15, seed=1234){
+  wss <- (nrow(data)-1)*sum(apply(data,2,var))
+  for (i in 2:nc){
+    set.seed(seed)
+    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")}
+
+wssplot(wine.stand, nc=6)    ## graficky urcime nejvetsi "zlom"
+
+## dalsi zpusob na urceni optimalniho poctu shluku je pomoci prikazu NbClust
+library(NbClust)
+nc <- NbClust(wine.stand, min.nc=2, max.nc=15, method="kmeans")
+
+barplot(table(nc$Best.n[1,]),
+              xlab="Numer of Clusters", ylab="Number of Criteria",
+                    main="Number of Clusters Chosen by 26 Criteria")
+table(nc$Best.n[1,])
+
+## takze dalo by se rici, ze 3 je optimalni pocet shluku
+
+k.means.fit <- kmeans(wine.stand, 3)
+attributes(k.means.fit)
+k.means.fit$centers
+k.means.fit$cluster
+k.means.fit$size
+
+library(cluster)
+clusplot(wine.stand, k.means.fit$cluster, main='2D representation of the Cluster solution',
+         color=TRUE, shade=TRUE,
+         labels=2, lines=0) 
+
+help(clusplot)
+
+
+## dendrogram mame pouze pro hierarchicke shlukovani,
+## neco podobneho vytvari nasledujici funkce pro K-means shlukovani
+
+source("https://raw.github.com/talgalili/R-code-snippets/master/clustergram.r")
+clustergram(wine.stand) 
+
+
+
+## poznamka na zaver
+library(corrplot)
+corrplot(cor(wine.stand), method="number")
+corrplot(cor(wine.stand), method="ellipse")
+
+
+##https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html
+corrplot(cor(wine.stand), method="ellipse")
+
+corrplot(cor(wine.stand),order ="hclust")
+
+corrplot.mixed(cor(wine.stand), lower="number",upper="circle",order ="hclust")
